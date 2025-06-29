@@ -1,0 +1,8 @@
+# mvp-qualidade-seguranca-sistemas-inteligentes/requirements.txt
+
+pandas
+scikit-learn
+Flask
+joblib
+gunicorn
+numpy
