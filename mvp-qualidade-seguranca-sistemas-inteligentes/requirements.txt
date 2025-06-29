@@ -6,3 +6,5 @@ Flask
 joblib
 gunicorn
 numpy
+marshmallow
+flask-smorest

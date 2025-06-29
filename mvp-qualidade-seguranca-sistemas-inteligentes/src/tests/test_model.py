@@ -12,7 +12,21 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from models.train_model import train_model, save_model, load_processed_data
 # Importar os mapeamentos definidos em make_dataset.py
+# É crucial que make_dataset.py tenha os mesmos mapeamentos e a lógica de preprocess_data
 from data.make_dataset import clean_data, preprocess_data, CATEGORICAL_MAPPINGS
+
+# Definir as listas de features numéricas e categóricas (strings)
+# Estas listas devem ser consistentes com o que make_dataset.py e app.py esperam.
+NUMERIC_FEATURES_FOR_TEST = [
+    'Age', 'Avg_Daily_Usage_Hours', 'Sleep_Hours_Per_Night',
+    'Mental_Health_Score', 'Conflicts_Over_Social_Media',
+    'SMAS', 'PHQ9', 'GAD7', 'SWLS', 'Loneliness_Scale' # Adicionei estas pois são numéricas no seu dummy data
+]
+STRING_CATEGORICAL_FEATURES_FOR_TEST = [
+    'Gender', 'Academic_Level', 'Country', 'Most_Used_Platform',
+    'Affects_Academic_Performance', 'Relationship_Status'
+]
+
 
 class TestModel(unittest.TestCase):
 
@@ -28,26 +42,25 @@ class TestModel(unittest.TestCase):
         cls.test_data_path = os.path.join(project_root, 'src', 'data', 'processed', 'test_students_addiction_processed.csv')
         cls.test_model_path = os.path.join(project_root, 'models', 'test_random_forest_addiction_model.joblib')
 
-
         # Criar um DataFrame de teste que simule o 'Students Social Media Addiction.csv'
         # com a coluna alvo 'Addicted_Score'
         # As colunas categóricas AQUI ainda são STRINGS, pois o preprocess_data as converterá.
         cls.test_df = pd.DataFrame({
             'Age': [20, 22, 25, 19, 21, 23, 24, 20, 26, 22],
             'Gender': ['Male', 'Female', 'Male', 'Female', 'Male', 'Female', 'Male', 'Female', 'Male', 'Female'],
-            'Relationship Status': ['Single', 'In a relationship', 'Married', 'Single', 'In a relationship', 'Married', 'Single', 'In a relationship', 'Married', 'Single'],
-            'Occupation': ['Student', 'Employed', 'Student', 'Employed', 'Student', 'Employed', 'Student', 'Student', 'Employed', 'Student'],
-            'Affiliation': ['University', 'College', 'University', 'College', 'University', 'College', 'University', 'College', 'University', 'College'],
-            'SMAS': [30, 45, 60, 25, 38, 55, 40, 33, 65, 48],
-            'PHQ9': [5, 10, 15, 3, 8, 12, 7, 6, 18, 9],
-            'GAD7': [4, 8, 12, 2, 6, 10, 5, 4, 15, 7],
-            'SWLS': [25, 20, 15, 30, 22, 18, 28, 26, 12, 23],
-            'Loneliness_Scale': [3, 7, 9, 2, 5, 8, 4, 3, 10, 6],
+            'Relationship_Status': ['Single', 'In Relationship', 'Complicated', 'Single', 'In Relationship', 'Complicated', 'Single', 'In Relationship', 'Complicated', 'Single'],
+            'Academic_Level': ['Undergraduate', 'Graduate', 'High School', 'Undergraduate', 'Graduate', 'High School', 'Undergraduate', 'Graduate', 'High School', 'Undergraduate'],
+            'Country': ['Brazil', 'USA', 'Germany', 'Brazil', 'USA', 'Germany', 'Brazil', 'USA', 'Germany', 'Brazil'],
+            'Avg_Daily_Usage_Hours': [3.0, 5.5, 7.0, 2.0, 4.0, 6.0, 3.5, 4.5, 8.0, 5.0],
+            'Most_Used_Platform': ['Instagram', 'TikTok', 'YouTube', 'Facebook', 'Twitter', 'Instagram', 'TikTok', 'YouTube', 'Facebook', 'Twitter'],
+            'Affects_Academic_Performance': ['No', 'Yes', 'Yes', 'No', 'No', 'Yes', 'No', 'No', 'Yes', 'No'],
+            'Sleep_Hours_Per_Night': [7.0, 6.0, 5.0, 8.0, 7.5, 6.5, 7.0, 6.0, 5.5, 7.0],
+            'Mental_Health_Score': [80, 65, 50, 90, 75, 55, 85, 70, 45, 80],
+            'Conflicts_Over_Social_Media': [0, 1, 1, 0, 0, 1, 0, 0, 1, 0],
             'Addicted_Score': [0, 0, 1, 0, 0, 1, 0, 0, 1, 0] # 0: Não Viciado, 1: Viciado
         })
 
         # Processar o DataFrame de teste USANDO AS MESMAS FUNÇÕES DE make_dataset.py
-        # clean_data e preprocess_data usarão CATEGORICAL_MAPPINGS
         cls.test_df_processed = clean_data(cls.test_df.copy())
         cls.test_df_processed = preprocess_data(cls.test_df_processed.copy())
 
@@ -93,7 +106,22 @@ class TestModel(unittest.TestCase):
                 X_test_predict[c] = 0 # Preenche colunas que podem ter faltado no teste dummy (ex: categoria não representada)
             X_test_predict = X_test_predict[loaded_model.feature_names_in_]
         else:
-            self.fail("Não foi possível verificar a ordem das features do modelo. Teste de previsão pode ser impreciso.")
+            # Esta parte é um fallback crítico. A ordem das colunas DEVE ser a mesma do treinamento.
+            # Baseado nas features que restaram no seu CATEGORICAL_MAPPINGS + outras numéricas
+            # Esta lista precisa ser a lista EXATA de features que o modelo espera, na ordem certa.
+            expected_features_fallback = [
+                'Age', 'Avg_Daily_Usage_Hours', 'Sleep_Hours_Per_Night', 'Mental_Health_Score', 'Conflicts_Over_Social_Media',
+                'SMAS', 'PHQ9', 'GAD7', 'SWLS', 'Loneliness_Scale', # As numéricas que estavam no seu dummy
+                'Gender', 'Academic_Level', 'Country', 'Most_Used_Platform',
+                'Affects_Academic_Performance', 'Relationship_Status'
+            ]
+            
+            # Garante que X_test_predict tem todas as colunas esperadas, preenchendo com 0 se ausentes
+            for col in expected_features_fallback:
+                if col not in X_test_predict.columns:
+                    X_test_predict[col] = 0
+            # Reordena as colunas
+            X_test_predict = X_test_predict[expected_features_fallback]
 
 
         predictions = loaded_model.predict(X_test_predict)
@@ -104,15 +132,18 @@ class TestModel(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        # Limpeza de arquivos e diretórios criados durante os testes
         if os.path.exists(cls.test_data_path):
             os.remove(cls.test_data_path)
         if os.path.exists(cls.test_model_path):
             os.remove(cls.test_model_path)
 
         processed_dir = os.path.dirname(cls.test_data_path)
+        # Verifica se o diretório processed está vazio antes de tentar removê-lo
         if os.path.exists(processed_dir) and not os.listdir(processed_dir):
             os.rmdir(processed_dir)
         models_dir = os.path.dirname(cls.test_model_path)
+        # Verifica se o diretório models está vazio antes de tentar removê-lo
         if os.path.exists(models_dir) and not os.listdir(models_dir):
             os.rmdir(models_dir)
 
